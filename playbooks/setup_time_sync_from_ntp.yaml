@@ -1,0 +1,77 @@
+---
+- name: Setup time sync from NTP server
+  hosts: all
+  become: true
+  vars:
+    timezone: "Asia/Hong_Kong"
+    ntp_host: "stdtime.gov.hk"
+  tasks:
+    - name: Display vars
+      ansible.builtin.debug:
+        msg:
+          - "timezone: {{ timezone }}"
+          - "ntp_host: {{ ntp_host }}"
+
+    - name: Set timezone
+      ansible.builtin.command: timedatectl set-timezone {{ timezone }}
+      changed_when: false
+
+    - name: Gather the package facts
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Install apt package systemd-timesyncd if not existed
+      ansible.builtin.apt:
+        name: systemd-timesyncd
+        state: present
+      when: '"systemd-timesyncd" not in ansible_facts.packages'
+
+    - name: Make sure config dir existed
+      ansible.builtin.file:
+        path: /etc/systemd/timesyncd.conf.d/
+        state: directory
+        mode: "0755"
+        recurse: true
+
+    - name: Create timesyncd config file
+      ansible.builtin.shell: |
+        cat <<EOT > /etc/systemd/timesyncd.conf.d/hk_ntp.conf
+        [Time]
+        NTP={{ ntp_host }}
+        EOT
+      args:
+        creates: /etc/systemd/timesyncd.conf.d/hk_ntp.conf
+
+    - name: Restart systemd-timesyncd
+      ansible.builtin.systemd:
+        name: systemd-timesyncd
+        state: restarted
+        masked: false
+        enabled: true
+        daemon_reload: true
+
+    # --------------------------------------------------
+    # verify result
+
+    - name: Get current ntp host
+      ansible.builtin.command: timedatectl show-timesync -p SystemNTPServers --value
+      register: ntp_host_result
+      changed_when: false
+
+    - name: Get current timezone
+      ansible.builtin.command: timedatectl show -p Timezone --value
+      register: timezone_result
+      changed_when: false
+
+    - name: Set fact current value
+      ansible.builtin.set_fact:
+        current:
+          ntp_host: "{{ ntp_host_result.stdout }}"
+          timezone: "{{ timezone_result.stdout }}"
+
+    - name: Verify result
+      ansible.builtin.debug:
+        var: current
+      failed_when: >
+        (current.ntp_host != ntp_host) or
+        (current.timezone != timezone)

@@ -1,0 +1,5 @@
+vm_group:
+  hosts:
+    vm_1:
+      ansible_host: 192.168.64.100
+      ansible_port: 22
