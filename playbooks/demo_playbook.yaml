@@ -8,7 +8,6 @@
         msg: "I am demo debug message"
 
     - name: Create a text file contain hello world
-      remote_user: autotoll
       changed_when: false
       ansible.builtin.shell:
         cmd: "echo 'hello world' > ~/hello_world.txt"
@@ -19,7 +18,6 @@
   gather_facts: false
   tasks:
     - name: Create text file contain my name
-      remote_user: autotoll
       changed_when: false
       ansible.builtin.shell:
         cmd: "echo 'isaac yip' > ~/my_name.txt"
